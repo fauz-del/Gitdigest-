@@ -1,5 +1,7 @@
 import { useState } from "react"
 
+const API_URL = "https://gitdigest-production.up.railway.app"
+
 export default function App() {
   const [token, setToken] = useState("")
   const [repo, setRepo] = useState("")
@@ -20,7 +22,7 @@ export default function App() {
     setStage("Connecting to GitHub...")
 
     try {
-      const response = await fetch("http://localhost:8000/generate-report", {
+      const response = await fetch(`${API_URL}/generate-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, repo })
@@ -61,7 +63,6 @@ export default function App() {
       setProgress(100)
       setStage("Done!")
 
-      // Trigger download
       const blob = new Blob(chunks, { type: "application/pdf" })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -87,7 +88,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0D1117] text-[#C9D1D9] flex flex-col items-center px-4 py-12">
 
-      {/* Header */}
       <div className="flex items-center gap-3 mb-2">
         <svg height="28" viewBox="0 0 16 16" fill="#C9D1D9">
           <path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.49c-2.01.37-2.65-.86-2.65-1.78-.36-.84-.74-1.07-.74-1.07-.61-.42.05-.41.05-.41.67.05 1.02.69 1.02.69.6 1.03 1.58.73 1.96.56.06-.43.23-.73.42-.9-1.49-.17-3.04-.74-3.04-3.3 0-.73.26-1.32.69-1.79-.07-.17-.3-.86.07-1.79 0 0 .56-.18 1.84.68a6.4 6.4 0 0 1 3.36 0c1.28-.86 1.84-.68 1.84-.68.37.93.14 1.62.07 1.79.43.47.69 1.06.69 1.79 0 2.57-1.56 3.13-3.05 3.3.24.21.46.62.46 1.25l-.01 1.85c0 .21.15.45.55.38A8 8 0 0 0 8 0Z"/>
@@ -98,10 +98,8 @@ export default function App() {
         Turn any public GitHub repo into a professional PDF report
       </p>
 
-      {/* Card */}
       <div className="w-full max-w-lg bg-[#161B22] border border-[#30363D] rounded-md p-6">
 
-        {/* Token input */}
         <div className="mb-4">
           <label className="block text-sm font-semibold mb-1">
             Personal access token
@@ -119,7 +117,6 @@ export default function App() {
           />
         </div>
 
-        {/* Repo input */}
         <div className="mb-5">
           <label className="block text-sm font-semibold mb-1">
             Repository
@@ -134,14 +131,12 @@ export default function App() {
           />
         </div>
 
-        {/* Error */}
         {error && (
           <div className="mb-4 text-sm text-[#F85149] bg-[#F8514915] border border-[#F8514940] rounded-md px-3 py-2">
             {error}
           </div>
         )}
 
-        {/* Progress bar */}
         {loading && (
           <div className="mb-4">
             <div className="flex justify-between text-xs text-[#8B949E] mb-1">
@@ -157,7 +152,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Button */}
         <button
           onClick={handleGenerate}
           disabled={loading}
@@ -171,7 +165,6 @@ export default function App() {
         </p>
       </div>
 
-      {/* Footer */}
       <p className="text-[#8B949E] text-xs mt-10">
         Public repos only · Bus Factor analysis · PDF export
       </p>
