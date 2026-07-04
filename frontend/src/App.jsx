@@ -19,13 +19,24 @@ export default function App() {
     setError("")
     setLoading(true)
     setProgress(0)
-    setStage("Connecting to GitHub...")
+    setStage("Waking up server...")
 
     try {
+      // Ping first to wake Railway from sleep
+      try {
+        await fetch(`${API_URL}/ping`, { signal: AbortSignal.timeout(10000) })
+      } catch {
+        // Ignore ping errors — just a warmup
+      }
+
+      setStage("Connecting to GitHub...")
+      setProgress(10)
+
       const response = await fetch(`${API_URL}/generate-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, repo })
+        body: JSON.stringify({ token, repo }),
+        signal: AbortSignal.timeout(120000) // 2 minute timeout
       })
 
       if (!response.ok) {
@@ -36,7 +47,7 @@ export default function App() {
       }
 
       setStage("Analyzing repository...")
-      setProgress(20)
+      setProgress(30)
 
       const contentLength = response.headers.get("Content-Length")
       const total = contentLength ? parseInt(contentLength) : null
@@ -45,7 +56,7 @@ export default function App() {
       let received = 0
 
       setStage("Generating PDF...")
-      setProgress(40)
+      setProgress(50)
 
       while (true) {
         const { done, value } = await reader.read()
@@ -54,7 +65,7 @@ export default function App() {
         received += value.length
 
         if (total) {
-          const percent = Math.min(40 + Math.round((received / total) * 55), 95)
+          const percent = Math.min(50 + Math.round((received / total) * 45), 95)
           setProgress(percent)
           setStage("Downloading report...")
         }
@@ -77,8 +88,12 @@ export default function App() {
         setStage("")
       }, 2000)
 
-    } catch (err) {
-      setError("Could not connect to backend")
+    } catch (err: any) {
+      if (err.name === "TimeoutError") {
+        setError("Request timed out — the server may be starting up. Please try again in 30 seconds.")
+      } else {
+        setError("Could not connect to backend")
+      }
       setLoading(false)
       setProgress(0)
       setStage("")
@@ -103,9 +118,7 @@ export default function App() {
         <div className="mb-4">
           <label className="block text-sm font-semibold mb-1">
             Personal access token
-            <span className="text-[#8B949E] font-normal ml-2 text-xs">
-              public_repo scope only
-            </span>
+            <span className="text-[#8B949E] font-normal ml-2 text-xs">public_repo scope only</span>
           </label>
           <input
             type="password"
@@ -118,9 +131,7 @@ export default function App() {
         </div>
 
         <div className="mb-5">
-          <label className="block text-sm font-semibold mb-1">
-            Repository
-          </label>
+          <label className="block text-sm font-semibold mb-1">Repository</label>
           <input
             type="text"
             placeholder="facebook/react"

@@ -62,3 +62,8 @@ def generate_report(request: ReportRequest):
             "Content-Length": str(pdf_size),
         }
     )
+
+
+@app.get("/ping")
+def ping():
+    return {"status": "alive"}
