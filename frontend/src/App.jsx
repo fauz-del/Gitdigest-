@@ -6,9 +6,19 @@ export default function App() {
   const [token, setToken] = useState("")
   const [repo, setRepo] = useState("")
   const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [stage, setStage] = useState("")
   const [error, setError] = useState("")
+  const [pdfUrl, setPdfUrl] = useState(null)
+  const [filename, setFilename] = useState("report.pdf")
+
+  const base64ToBlob = (base64) => {
+    const binary = atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return new Blob([bytes], { type: "application/pdf" })
+  }
 
   const handleGenerate = async () => {
     if (!token || !repo) {
@@ -17,85 +27,38 @@ export default function App() {
     }
 
     setError("")
+    setPdfUrl(null)
     setLoading(true)
-    setProgress(0)
-    setStage("Waking up server...")
+    setStage("Connecting to server...")
 
     try {
-      // Ping first to wake Railway from sleep
-      try {
-        await fetch(`${API_URL}/ping`, { signal: AbortSignal.timeout(10000) })
-      } catch {
-        // Ignore ping errors — just a warmup
-      }
-
-      setStage("Connecting to GitHub...")
-      setProgress(10)
-
       const response = await fetch(`${API_URL}/generate-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, repo }),
-        signal: AbortSignal.timeout(120000) // 2 minute timeout
+        body: JSON.stringify({ token, repo })
       })
 
-      if (!response.ok) {
-        const err = await response.json()
-        setError(err.error || "Something went wrong")
+      setStage("Building PDF...")
+
+      const data = await response.json()
+
+      if (data.error) {
+        setError(data.error)
         setLoading(false)
         return
       }
 
-      setStage("Analyzing repository...")
-      setProgress(30)
-
-      const contentLength = response.headers.get("Content-Length")
-      const total = contentLength ? parseInt(contentLength) : null
-      const reader = response.body.getReader()
-      const chunks = []
-      let received = 0
-
-      setStage("Generating PDF...")
-      setProgress(50)
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        chunks.push(value)
-        received += value.length
-
-        if (total) {
-          const percent = Math.min(50 + Math.round((received / total) * 45), 95)
-          setProgress(percent)
-          setStage("Downloading report...")
-        }
-      }
-
-      setProgress(100)
-      setStage("Done!")
-
-      const blob = new Blob(chunks, { type: "application/pdf" })
+      const blob = base64ToBlob(data.pdf)
       const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `gitdigest-${repo.replace("/", "-")}.pdf`
-      a.click()
-      window.URL.revokeObjectURL(url)
 
-      setTimeout(() => {
-        setLoading(false)
-        setProgress(0)
-        setStage("")
-      }, 2000)
-
-    } catch (err: any) {
-      if (err.name === "TimeoutError") {
-        setError("Request timed out — the server may be starting up. Please try again in 30 seconds.")
-      } else {
-        setError("Could not connect to backend")
-      }
+      setPdfUrl(url)
+      setFilename(data.filename || "gitdigest-report.pdf")
+      setStage("Done!")
       setLoading(false)
-      setProgress(0)
+
+    } catch (err) {
+      setError(`Error: ${err.message}`)
+      setLoading(false)
       setStage("")
     }
   }
@@ -149,24 +112,29 @@ export default function App() {
         )}
 
         {loading && (
-          <div className="mb-4">
-            <div className="flex justify-between text-xs text-[#8B949E] mb-1">
-              <span>{stage}</span>
-              <span>{progress}%</span>
-            </div>
-            <div className="w-full h-1.5 bg-[#0D1117] rounded-full overflow-hidden border border-[#30363D]">
-              <div
-                className="h-full bg-[#238636] rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+          <div className="mb-4 text-center">
+            <div className="inline-block w-5 h-5 border-2 border-[#238636] border-t-transparent rounded-full animate-spin mb-2" />
+            <p className="text-xs text-[#8B949E]">{stage}</p>
+            <p className="text-xs text-[#8B949E] mt-1">This may take 30-60 seconds...</p>
           </div>
+        )}
+
+        {pdfUrl && (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={filename}
+            className="block w-full text-center bg-[#238636] hover:bg-[#3FB950] text-white font-semibold py-3 rounded-md text-sm transition-colors duration-150 mb-3"
+          >
+            ⬇ Open PDF Report
+          </a>
         )}
 
         <button
           onClick={handleGenerate}
           disabled={loading}
-          className="w-full bg-[#238636] hover:bg-[#3FB950] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-md text-sm transition-colors duration-150"
+          className="w-full bg-[#1F6FEB] hover:bg-[#388bfd] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-md text-sm transition-colors duration-150"
         >
           {loading ? "Working..." : "Generate report"}
         </button>
